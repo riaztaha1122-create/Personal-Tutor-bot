@@ -397,6 +397,10 @@
 let conversationHistory = [];
 let isTyping = false;
 
+// Backend API base URL — set this to your Vercel backend URL after deployment
+// e.g. "https://your-backend-project.vercel.app"
+const BACKEND_URL = "https://YOUR-BACKEND.vercel.app";
+
 // THEME HANDLING
 function applyStoredTheme() {
   const stored = localStorage.getItem("aria-theme");
@@ -486,7 +490,7 @@ async function sendMessage() {
       window.location.hostname === "127.0.0.1";
     const endpoint = isLocal
       ? "http://localhost:5000/chat-stream"
-      : "/api/chat-stream";
+      : `${BACKEND_URL}/api/chat-stream`;
 
     const res = await fetch(endpoint, {
       method:"POST",
@@ -520,7 +524,10 @@ async function sendMessage() {
     conversationHistory.push({ role:"assistant", content: assistantText });
   } catch (e) {
     const area = document.getElementById("messages");
-    appendMessage("assistant", "Connection error. Please make sure the backend server is running on http://localhost:5000.");
+    const msg = isLocal
+      ? "Connection error. Please make sure the backend server is running on http://localhost:5000."
+      : "Connection error. Check that BACKEND_URL in the frontend matches your backend deployment.";
+    appendMessage("assistant", msg);
   }
 
   isTyping = false;
