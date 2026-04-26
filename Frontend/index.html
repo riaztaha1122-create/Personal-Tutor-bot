@@ -482,11 +482,12 @@ async function sendMessage() {
 
   const sendBtn = document.querySelector(".send-btn");
   if (sendBtn) sendBtn.disabled = true;
+  const isLocal =
+    window.location.protocol === "file:" ||
+    window.location.hostname === "localhost" ||
+    window.location.hostname === "127.0.0.1";
 
   try {
-    const isLocal =
-      window.location.hostname === "localhost" ||
-      window.location.hostname === "127.0.0.1";
     const endpoint = isLocal
       ? "http://localhost:5000/chat-stream"
       : `${BACKEND_URL}/api/chat-stream`;
@@ -496,6 +497,21 @@ async function sendMessage() {
       headers:{"Content-Type":"application/json"},
       body:JSON.stringify({ messages: conversationHistory })
     });
+
+    if (!res.ok) {
+      let details = `Request failed with status ${res.status}.`;
+      try {
+        const errorJson = await res.json();
+        details = errorJson?.details || errorJson?.error || details;
+      } catch (_) {
+        // Ignore JSON parse errors and keep default message
+      }
+      throw new Error(details);
+    }
+
+    if (!res.body) {
+      throw new Error("No response body received from server.");
+    }
 
     const area = document.getElementById("messages");
     const { row, bubble } = createMsgRow("assistant");
@@ -522,10 +538,9 @@ async function sendMessage() {
 
     conversationHistory.push({ role:"assistant", content: assistantText });
   } catch (e) {
-    const area = document.getElementById("messages");
     const msg = isLocal
-      ? "Connection error. Please make sure the backend server is running on http://localhost:5000."
-      : "Connection error. Check that BACKEND_URL in the frontend matches your backend deployment.";
+      ? `Connection error: ${e.message}. Make sure backend is running at http://localhost:5000.`
+      : `Connection error: ${e.message}. Check that BACKEND_URL matches your deployed backend.`;
     appendMessage("assistant", msg);
   }
 

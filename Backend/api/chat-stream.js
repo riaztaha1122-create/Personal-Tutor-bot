@@ -1,8 +1,38 @@
 import OpenAI from "openai";
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+function getOpenAIClient() {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    return null;
+  }
+
+  return new OpenAI({ apiKey });
+}
+
+function sendOpenAIError(res, err) {
+  const statusCode = err?.status ?? 500;
+  const details = err?.message ?? "Unknown error";
+
+  // Surface quota/auth failures directly so frontend can show actionable hints.
+  if (statusCode === 429) {
+    return res.status(429).json({
+      error: "OpenAI quota exceeded",
+      details:
+        "Your API key is valid, but your OpenAI account has no remaining quota or billing is inactive.",
+      raw: details,
+    });
+  }
+
+  if (statusCode === 401) {
+    return res.status(401).json({
+      error: "OpenAI authentication failed",
+      details: "Check whether OPENAI_API_KEY is valid and active.",
+      raw: details,
+    });
+  }
+
+  return res.status(statusCode).json({ error: "Server error", details });
+}
 
 function buildPrompt(conversation) {
   return [
@@ -40,6 +70,15 @@ export default async function handler(req, res) {
   }
 
   try {
+    const openai = getOpenAIClient();
+    if (!openai) {
+      return res.status(500).json({
+        error: "Missing OPENAI_API_KEY",
+        details:
+          "Set OPENAI_API_KEY in your environment variables before calling this endpoint.",
+      });
+    }
+
     const { messages } = req.body || {};
     if (!messages || !Array.isArray(messages)) {
       return res.status(400).json({ error: "Invalid request body" });
@@ -69,9 +108,7 @@ export default async function handler(req, res) {
   } catch (err) {
     console.error(err);
     if (!res.headersSent) {
-      res
-        .status(500)
-        .json({ error: "Server error", details: err?.message ?? "Unknown error" });
+      sendOpenAIError(res, err);
     } else {
       res.end();
     }

@@ -13,9 +13,38 @@ app.use(cors());
 app.use(express.json());
 
 // Initialize OpenAI client
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY, // set your key in env variables
-});
+function getOpenAIClient() {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    return null;
+  }
+
+  return new OpenAI({ apiKey });
+}
+
+function sendOpenAIError(res, err) {
+  const statusCode = err?.status ?? 500;
+  const details = err?.message ?? "Unknown error";
+
+  if (statusCode === 429) {
+    return res.status(429).json({
+      error: "OpenAI quota exceeded",
+      details:
+        "Your API key is valid, but your OpenAI account has no remaining quota or billing is inactive.",
+      raw: details,
+    });
+  }
+
+  if (statusCode === 401) {
+    return res.status(401).json({
+      error: "OpenAI authentication failed",
+      details: "Check whether OPENAI_API_KEY is valid and active.",
+      raw: details,
+    });
+  }
+
+  return res.status(statusCode).json({ error: "Server error", details });
+}
 
 /**
  * Build structured prompt for beginner-friendly responses
@@ -45,6 +74,15 @@ Your answers must always be:
 
 app.post("/chat", async (req, res) => {
   try {
+    const openai = getOpenAIClient();
+    if (!openai) {
+      return res.status(500).json({
+        error: "Missing OPENAI_API_KEY",
+        details:
+          "Set OPENAI_API_KEY in your environment variables before calling this endpoint.",
+      });
+    }
+
     const { messages } = req.body;
     if (!messages || !Array.isArray(messages)) {
       return res.status(400).json({ error: "Invalid request body" });
@@ -63,13 +101,22 @@ app.post("/chat", async (req, res) => {
     res.json({ reply });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: "Server error", details: err.message });
+    sendOpenAIError(res, err);
   }
 });
 
 // Streaming version: sends the reply chunk by chunk instead of in one JSON blob
 app.post("/chat-stream", async (req, res) => {
   try {
+    const openai = getOpenAIClient();
+    if (!openai) {
+      return res.status(500).json({
+        error: "Missing OPENAI_API_KEY",
+        details:
+          "Set OPENAI_API_KEY in your environment variables before calling this endpoint.",
+      });
+    }
+
     const { messages } = req.body;
     if (!messages || !Array.isArray(messages)) {
       res.status(400).json({ error: "Invalid request body" });
@@ -105,7 +152,7 @@ app.post("/chat-stream", async (req, res) => {
     console.error(err);
     // If headers not sent yet, send standard JSON error
     if (!res.headersSent) {
-      res.status(500).json({ error: "Server error", details: err.message });
+      sendOpenAIError(res, err);
     } else {
       // If already streaming, end the stream
       res.end();
