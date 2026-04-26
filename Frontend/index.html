@@ -397,9 +397,6 @@
 let conversationHistory = [];
 let isTyping = false;
 
-// Backend API base URL (Vercel serverless)
-const BACKEND_URL = "https://personal-tutor-bot-xopr.vercel.app";
-
 // THEME HANDLING
 function applyStoredTheme() {
   const stored = localStorage.getItem("aria-theme");
@@ -490,7 +487,7 @@ async function sendMessage() {
   try {
     const endpoint = isLocal
       ? "http://localhost:5000/chat-stream"
-      : `${BACKEND_URL}/api/chat-stream`;
+      : "/api/chat-stream";
 
     const res = await fetch(endpoint, {
       method:"POST",
@@ -540,7 +537,7 @@ async function sendMessage() {
   } catch (e) {
     const msg = isLocal
       ? `Connection error: ${e.message}. Make sure backend is running at http://localhost:5000.`
-      : `Connection error: ${e.message}. Check that BACKEND_URL matches your deployed backend.`;
+      : `Connection error: ${e.message}. Check that your Vercel API route /api/chat-stream is deployed and OPENAI_API_KEY is set.`;
     appendMessage("assistant", msg);
   }
 

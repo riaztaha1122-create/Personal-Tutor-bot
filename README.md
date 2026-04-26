@@ -178,6 +178,28 @@ This project is currently structured for **local development**. To deploy it:
 
 ---
 
+## Deploy on Vercel (Single Project)
+
+This repo includes a root `vercel.json` that serves:
+
+- `Frontend/index.html` as the app UI
+- `Backend/api/*` as serverless API routes (for example `/api/chat-stream`)
+
+Steps:
+
+1. Import this GitHub repo into Vercel.
+2. Keep **Root Directory** as repository root.
+3. In Project Settings → Environment Variables, add:
+   - `OPENAI_API_KEY=sk-...`
+4. Deploy.
+5. Open your Vercel domain and test a chat message.
+
+Local behavior remains the same:
+- local frontend uses `http://localhost:5000/chat-stream`
+- deployed frontend uses `/api/chat-stream` automatically
+
+---
+
 ## Security & Best Practices
 
 - **Never commit API keys** or `.env` files.
